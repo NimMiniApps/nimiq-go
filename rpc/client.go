@@ -284,6 +284,25 @@ type Transaction struct {
 	Flags               uint8      `json:"flags"`
 	ValidityStartHeight uint32     `json:"validityStartHeight"`
 	NetworkID           uint8      `json:"networkId"`
+	// ExecutionResult reports whether the transaction actually succeeded.
+	//
+	// Albatross includes failed transactions in blocks: the fee is charged and
+	// the transaction is permanently recorded, but its effect is not applied.
+	// A staking transaction naming a validator that does not exist is included
+	// with ExecutionResult false. Inclusion is therefore not success, and a
+	// service that treats "mined" as "done" will report payouts that never
+	// happened.
+	//
+	// Pointer so that a node which omits the field is distinguishable from one
+	// reporting an explicit failure.
+	ExecutionResult *bool `json:"executionResult"`
+}
+
+// Succeeded reports whether the transaction executed successfully. A node that
+// does not report the field at all is treated as success, since older
+// endpoints omit it and only failures are worth blocking on.
+func (t *Transaction) Succeeded() bool {
+	return t.ExecutionResult == nil || *t.ExecutionResult
 }
 
 // ErrNotFound reports that the chain has no record of what was requested. For a

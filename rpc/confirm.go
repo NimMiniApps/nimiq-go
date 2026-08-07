@@ -17,9 +17,22 @@ type Confirmation struct {
 	// Final is true once the transaction's block is at or below the latest
 	// macro block, at which point it can no longer be reverted.
 	Final bool
+	// Succeeded reports whether the transaction's effect was actually applied.
+	// A transaction can be Included and Final while Succeeded is false.
+	Succeeded bool
 	// MacroHeight is the macro-block height the decision was made against.
 	MacroHeight uint32
 }
+
+// ErrExecutionFailed reports a transaction that was included in a block but
+// whose effect was not applied.
+//
+// The transaction is permanently on chain and its fee was charged, so this is
+// not a retryable condition in the way a rejected broadcast is: resending the
+// same bytes will not help, because the same transaction would fail the same
+// way. Fix the cause — an unknown validator, insufficient stake, a violated
+// contract precondition — and build a new transaction.
+var ErrExecutionFailed = errors.New("nimiq/rpc: transaction was included but its execution failed")
 
 // WaitOptions tunes WaitForTransaction.
 type WaitOptions struct {
@@ -52,6 +65,11 @@ func (o WaitOptions) withDefaults() WaitOptions {
 // WaitForTransaction polls until the transaction is included — or final, if
 // WaitOptions.WaitForFinality is set — or until ctx is cancelled.
 //
+// If the transaction is on chain but its execution failed, the returned
+// Confirmation is non-nil and the error wraps ErrExecutionFailed. Returning an
+// error rather than a quietly unsuccessful Confirmation is deliberate: a caller
+// that ignores the error would otherwise record a payout that never happened.
+//
 // The caller controls the deadline through ctx. There is no built-in timeout,
 // because how long a payment may stay pending is a policy decision.
 //
@@ -69,6 +87,9 @@ func (c *Client) WaitForTransaction(ctx context.Context, hash string, opts WaitO
 		}
 		if err == nil {
 			if conf.Final || (!opts.WaitForFinality && conf.Included) {
+				if !conf.Succeeded {
+					return conf, fmt.Errorf("%w: %s", ErrExecutionFailed, hash)
+				}
 				return conf, nil
 			}
 		}
@@ -96,7 +117,11 @@ func (c *Client) CheckTransaction(ctx context.Context, hash string) (*Confirmati
 	if err != nil {
 		return nil, err
 	}
-	conf := &Confirmation{Transaction: tx, Included: tx.BlockNumber > 0}
+	conf := &Confirmation{
+		Transaction: tx,
+		Included:    tx.BlockNumber > 0,
+		Succeeded:   tx.Succeeded(),
+	}
 	if !conf.Included {
 		return conf, nil
 	}
