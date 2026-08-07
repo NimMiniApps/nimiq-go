@@ -34,15 +34,15 @@ func newFakeNode(t *testing.T, results map[string]string) (*Client, *fakeNode) {
 		f.gotParams[req.Method] = req.Params
 		if f.status != 200 {
 			w.WriteHeader(f.status)
-			w.Write([]byte("nope"))
+			_, _ = w.Write([]byte("nope"))
 			return
 		}
 		result, ok := f.results[req.Method]
 		if !ok {
-			w.Write([]byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}`))
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}`))
 			return
 		}
-		w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":` + result + `}`))
+		_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":` + result + `}`))
 	}))
 	t.Cleanup(srv.Close)
 	c, err := New(srv.URL)
@@ -191,7 +191,7 @@ func TestContextCancellation(t *testing.T) {
 func TestObserverSeesEveryCall(t *testing.T) {
 	var seen []Observation
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":5}`))
+		_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":5}`))
 	}))
 	defer srv.Close()
 	c, err := New(srv.URL, WithObserver(func(o Observation) { seen = append(seen, o) }))

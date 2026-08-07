@@ -149,7 +149,7 @@ func (c *Client) call(ctx context.Context, method string, params []any, out any)
 	if err != nil {
 		return fmt.Errorf("nimiq/rpc: %s: %w", method, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Bound the response so a malfunctioning endpoint cannot exhaust memory.
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 64<<20))

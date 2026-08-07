@@ -183,7 +183,7 @@ func TestParseRejectsTrailingBytes(t *testing.T) {
 // TestEndToEndSignAndVerify is the spike proper: key to address to transaction
 // to signature to proof to serialized bytes to hash, with no network access.
 func TestEndToEndSignAndVerify(t *testing.T) {
-	// A fixed test seed. Never a real key — see docs/phase2-protocol.md.
+	// A fixed test seed. Never a real key.
 	seed := mustHex(t, "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20")
 	key := ed25519.NewKeyFromSeed(seed)
 	s := signerStub{key: key}
