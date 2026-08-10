@@ -34,6 +34,16 @@ func (e *encoder) uvarint(v uint64) {
 	e.buf = append(e.buf, byte(v))
 }
 
+// uvarintLen reports how many bytes the uvarint encoding of n occupies.
+func uvarintLen(n int) int {
+	v, size := uint64(n), 1
+	for v >= 0x80 {
+		v >>= 7
+		size++
+	}
+	return size
+}
+
 // bytes writes a uvarint length prefix followed by the payload — postcard's
 // encoding for Vec<u8>.
 func (e *encoder) bytes(b []byte) {

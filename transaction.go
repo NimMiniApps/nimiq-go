@@ -250,6 +250,26 @@ func (t *Transaction) Serialize() ([]byte, error) {
 	return e.buf, nil
 }
 
+// SerializedSize returns the transaction's size in wire bytes.
+//
+// An unsigned transaction is measured as if it carried a standard
+// single-signature proof, so a fee can be estimated before signing. For a
+// signed transaction the result equals len of what Serialize returns.
+func (t *Transaction) SerializedSize() int {
+	proofLen := len(t.Proof)
+	if proofLen == 0 {
+		proofLen = emptyProofLen
+	}
+	if t.Format() == FormatBasic {
+		// variant, type-and-flags, key, recipient, value, fee, height, network,
+		// signature — the sender and Merkle path are not transmitted.
+		return 1 + 1 + 32 + AddressLen + 8 + 8 + 4 + 1 + 64
+	}
+	return 1 + AddressLen + 1 + uvarintLen(len(t.SenderData)) + len(t.SenderData) +
+		AddressLen + 1 + uvarintLen(len(t.RecipientData)) + len(t.RecipientData) +
+		8 + 8 + 4 + 1 + 1 + uvarintLen(proofLen) + proofLen
+}
+
 // ParseTransaction decodes wire bytes back into a Transaction, accepting both
 // formats.
 //
