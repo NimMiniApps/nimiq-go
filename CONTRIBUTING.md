@@ -4,7 +4,7 @@ Thanks for helping improve `nimiq-go`.
 
 ## Setup
 
-- Go **1.22+**
+- Go **1.25+**
 - Optional: [golangci-lint](https://golangci-lint.run/) for local linting
 
 ```bash

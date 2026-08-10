@@ -34,7 +34,7 @@ func pagingNode(t *testing.T, total int, data map[int]string) (*Client, *int) {
 		var cursor string
 		if len(req.Params) > 2 && json.Unmarshal(req.Params[2], &cursor) == nil && cursor != "" {
 			// Cursor is the last hash returned; resume after it.
-			fmt.Sscanf(cursor, "tx%d", &start)
+			_, _ = fmt.Sscanf(cursor, "tx%d", &start)
 			start++
 		}
 		out := []map[string]any{}

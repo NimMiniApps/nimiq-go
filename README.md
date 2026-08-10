@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/NimMiniApps/nimiq-go/actions/workflows/ci.yml/badge.svg)](https://github.com/NimMiniApps/nimiq-go/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/NimMiniApps/nimiq-go.svg)](https://pkg.go.dev/github.com/NimMiniApps/nimiq-go)
-[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://go.dev/dl/)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev/dl/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Go SDK for the [Nimiq](https://nimiq.com) Albatross (proof-of-stake) chain: offline addresses, amounts, transaction building and signing, plus an optional JSON-RPC client.
@@ -13,7 +13,7 @@ Go SDK for the [Nimiq](https://nimiq.com) Albatross (proof-of-stake) chain: offl
 go get github.com/NimMiniApps/nimiq-go@v0.2.0
 ```
 
-Requires **Go 1.22+**.
+Requires **Go 1.25+**.
 
 ## Quickstart
 
