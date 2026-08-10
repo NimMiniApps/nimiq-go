@@ -10,7 +10,7 @@ Go SDK for the [Nimiq](https://nimiq.com) Albatross (proof-of-stake) chain: offl
 ## Install
 
 ```bash
-go get github.com/NimMiniApps/nimiq-go@v0.1.0
+go get github.com/NimMiniApps/nimiq-go@v0.2.0
 ```
 
 Requires **Go 1.22+**.
