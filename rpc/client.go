@@ -33,6 +33,10 @@ type Client struct {
 	httpClient *http.Client
 	id         atomic.Int64
 	user, pass string
+	// network is the chain transactions built by Send are signed for. Set with
+	// WithNetwork; it is never read from the node.
+	network nimiq.NetworkID
+	hasNetwork bool
 	// onRequest, when set, is called after every attempt. It is the hook for
 	// metrics and logging, so the SDK itself needs no logger dependency.
 	onRequest func(Observation)
@@ -90,6 +94,16 @@ func WithFallbackEndpoints(urls ...string) Option {
 	}
 }
 
+// WithNetwork sets the network transactions are signed for. Required for
+// Send; it is not read from the node, since a node's answer is not
+// authority over what your application meant to sign.
+func WithNetwork(n nimiq.NetworkID) Option {
+	return func(c *Client) {
+		c.network = n
+		c.hasNetwork = true
+	}
+}
+
 // Endpoints returns the endpoints this client will try, in order.
 func (c *Client) Endpoints() []string {
 	return append([]string(nil), c.urls...)
@@ -141,6 +155,13 @@ type HTTPError struct {
 
 func (e *HTTPError) Error() string {
 	return fmt.Sprintf("nimiq/rpc: %s got HTTP %d: %s", e.Method, e.Status, e.Body)
+}
+
+// Call issues a raw JSON-RPC request for methods this SDK does not wrap,
+// with the client's retries, timeouts, and endpoint failover applied.
+// ponytail: escape hatch instead of wrapping every albatross method.
+func (c *Client) Call(ctx context.Context, method string, params []any, out any) error {
+	return c.call(ctx, method, params, out)
 }
 
 // call performs a JSON-RPC request, walking the configured endpoints until one
@@ -438,6 +459,40 @@ func (c *Client) SendTransaction(ctx context.Context, tx *nimiq.Transaction) (st
 		return remote, fmt.Errorf("nimiq/rpc: node reported hash %s but the transaction hashes locally to %s", remote, local)
 	}
 	return local, nil
+}
+
+// Send builds, signs, and broadcasts a basic transfer, filling in the
+// validity start height from the chain head and the fee from the network
+// minimum. Returns the transaction hash.
+func (c *Client) Send(ctx context.Context, s nimiq.Signer, to nimiq.Address, value nimiq.Luna) (string, error) {
+	if !c.hasNetwork {
+		return "", errors.New("nimiq/rpc: Send requires WithNetwork")
+	}
+	height, err := c.BlockNumber(ctx)
+	if err != nil {
+		return "", err
+	}
+	pub, err := s.PublicKey(ctx)
+	if err != nil {
+		return "", err
+	}
+	from, err := nimiq.AddressFromPublicKey(pub)
+	if err != nil {
+		return "", err
+	}
+	tx, err := nimiq.NewBasicTransaction(from, to, value, 0, height, c.network)
+	if err != nil {
+		return "", err
+	}
+	fee, err := c.EstimateFee(ctx, tx)
+	if err != nil {
+		return "", err
+	}
+	tx.Fee = fee
+	if err := nimiq.SignTransaction(ctx, s, tx); err != nil {
+		return "", err
+	}
+	return c.SendTransaction(ctx, tx)
 }
 
 func hexEncode(b []byte) string {

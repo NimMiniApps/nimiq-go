@@ -26,6 +26,9 @@ import (
 // service — no transaction-handling code has to change.
 type PrivateKey struct {
 	key ed25519.PrivateKey
+	// entropy, when set, is the BIP39/legacy entropy that produced this key.
+	// Mnemonic() exports it so a FromMnemonic round-trip restores the same key.
+	entropy []byte
 }
 
 // NewPrivateKey builds a signer from a 32-byte Nimiq private key, which is the
@@ -94,6 +97,14 @@ func (p *PrivateKey) Address() nimiq.Address {
 		panic(err)
 	}
 	return addr
+}
+
+// Seed returns a copy of the 32-byte Ed25519 seed (Nimiq private key).
+func (p *PrivateKey) Seed() []byte {
+	s := p.key.Seed()
+	out := make([]byte, len(s))
+	copy(out, s)
+	return out
 }
 
 // String deliberately does not reveal key material. Without it, embedding a

@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	nimiq "github.com/NimMiniApps/nimiq-go"
+	"github.com/NimMiniApps/nimiq-go/signer"
 )
 
 // fakeNode serves canned results keyed by method, and records the params it
@@ -209,5 +212,111 @@ func TestObserverSeesEveryCall(t *testing.T) {
 func TestNewRequiresEndpoint(t *testing.T) {
 	if _, err := New(""); err == nil {
 		t.Fatal("expected an error for an empty endpoint; no public endpoint may be defaulted")
+	}
+}
+
+// TestCallEscapeHatch covers the raw RPC path for methods this SDK does not
+// wrap: the method name must reach the server and out must be populated.
+func TestCallEscapeHatch(t *testing.T) {
+	c, f := newFakeNode(t, map[string]string{"getPeerCount": `7`})
+	var count int
+	if err := c.Call(context.Background(), "getPeerCount", nil, &count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 7 {
+		t.Errorf("count = %d, want 7", count)
+	}
+	if _, ok := f.gotParams["getPeerCount"]; !ok {
+		t.Error("getPeerCount was not sent to the server")
+	}
+}
+
+func TestSendRequiresNetwork(t *testing.T) {
+	c, _ := newFakeNode(t, map[string]string{
+		"getBlockNumber":   `100`,
+		"getMinFeePerByte": `0`,
+	})
+	key, err := signer.Generate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = c.Send(context.Background(), key, testAddr, 1000)
+	if err == nil || !strings.Contains(err.Error(), "WithNetwork") {
+		t.Fatalf("expected WithNetwork error, got %v", err)
+	}
+}
+
+func TestSendFillsHeightAndFee(t *testing.T) {
+	const (
+		headHeight = uint32(9001)
+		minFeeRate = 1.0 // luna per byte
+	)
+	var gotHeight uint32
+	var gotFee nimiq.Luna
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Method string            `json:"method"`
+			Params []json.RawMessage `json:"params"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("decode: %v", err)
+			return
+		}
+		switch req.Method {
+		case "getBlockNumber":
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":9001}`))
+		case "getMinFeePerByte":
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":1}`))
+		case "sendRawTransaction":
+			var hexStr string
+			if err := json.Unmarshal(req.Params[0], &hexStr); err != nil {
+				t.Errorf("params: %v", err)
+				return
+			}
+			raw := make([]byte, len(hexStr)/2)
+			for i := 0; i < len(raw); i++ {
+				fmt.Sscanf(hexStr[i*2:i*2+2], "%02x", &raw[i])
+			}
+			tx, err := nimiq.ParseAndVerify(raw, nimiq.NetworkTestAlbatross)
+			if err != nil {
+				t.Errorf("ParseAndVerify: %v", err)
+				_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"bad tx"}}`))
+				return
+			}
+			gotHeight = tx.ValidityStartHeight
+			gotFee = tx.Fee
+			_, _ = fmt.Fprintf(w, `{"jsonrpc":"2.0","id":1,"result":%q}`, tx.Hash().String())
+		default:
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	c, err := New(srv.URL, WithNetwork(nimiq.NetworkTestAlbatross))
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := signer.Generate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash, err := c.Send(context.Background(), key, testAddr, 1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hash == "" {
+		t.Fatal("empty hash")
+	}
+	if gotHeight != headHeight {
+		t.Errorf("validity start height = %d, want %d", gotHeight, headHeight)
+	}
+	// Fee must be at least size * minFeeRate (EstimateFee rounds up).
+	unsigned, err := nimiq.NewBasicTransaction(key.Address(), testAddr, 1000, 0, headHeight, nimiq.NetworkTestAlbatross)
+	if err != nil {
+		t.Fatal(err)
+	}
+	minFee := nimiq.Luna(float64(unsigned.SerializedSize()) * minFeeRate)
+	if gotFee < minFee {
+		t.Errorf("fee = %d, want >= %d", gotFee, minFee)
 	}
 }

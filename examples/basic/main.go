@@ -1,7 +1,7 @@
 // Basic offline build/sign demo for nimiq-go.
 //
-// Set NIMIQ_RPC to a JSON-RPC endpoint to also broadcast the signed
-// transaction. Without it, the program only prints the hash and exits.
+// Set NIMIQ_RPC to a JSON-RPC endpoint to also broadcast via Client.Send.
+// Without it, the program only prints the sender address and exits.
 package main
 
 import (
@@ -22,51 +22,21 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	sender := key.Address()
 	recipient := nimiq.MustParseAddress("NQ07 0000 0000 0000 0000 0000 0000 0000 0000")
 
-	validityStart := uint32(4242)
+	fmt.Println("sender", key.Address())
+
 	endpoint := os.Getenv("NIMIQ_RPC")
-	if endpoint != "" {
-		client, err := rpc.New(endpoint)
-		if err != nil {
-			log.Fatal(err)
-		}
-		height, err := client.BlockNumber(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-		validityStart = height
-	}
-
-	tx, err := nimiq.NewBasicTransaction(
-		sender,
-		recipient,
-		nimiq.MustParseNIM("1.5"),
-		nimiq.MustParseNIM("0.00001"),
-		validityStart,
-		nimiq.NetworkTestAlbatross,
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := nimiq.SignTransaction(ctx, key, tx); err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("sender", sender)
-	fmt.Println("hash  ", tx.Hash())
-
 	if endpoint == "" {
 		fmt.Println("set NIMIQ_RPC to broadcast")
 		return
 	}
 
-	client, err := rpc.New(endpoint)
+	client, err := rpc.New(endpoint, rpc.WithNetwork(nimiq.NetworkTestAlbatross))
 	if err != nil {
 		log.Fatal(err)
 	}
-	hash, err := client.SendTransaction(ctx, tx)
+	hash, err := client.Send(ctx, key, recipient, nimiq.MustParseNIM("1.5"))
 	if err != nil {
 		log.Fatal(err)
 	}

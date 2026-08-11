@@ -10,10 +10,17 @@ Go SDK for the [Nimiq](https://nimiq.com) Albatross (proof-of-stake) chain: offl
 ## Install
 
 ```bash
-go get github.com/NimMiniApps/nimiq-go@v0.2.0
+go get github.com/NimMiniApps/nimiq-go@v0.3.0
 ```
 
 Requires **Go 1.25+**.
+
+## Features
+
+- Offline addresses, amounts, basic/extended transactions, and staking constructors
+- `signer`: Ed25519 keys, encrypted storage, BIP39 mnemonic import/export
+- `rpc`: balances, history, fee estimation, staking reads, `Send`, raw `Call` escape hatch
+- Cashlink URL parse/encode and vesting/HTLC creation payload parsing
 
 ## Quickstart
 
@@ -40,40 +47,26 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	sender := key.Address()
 	recipient := nimiq.MustParseAddress("NQ07 0000 0000 0000 0000 0000 0000 0000 0000")
-
-	// Offline: no RPC required to build or sign.
-	tx, err := nimiq.NewBasicTransaction(
-		sender, recipient,
-		nimiq.MustParseNIM("1.5"),
-		nimiq.MustParseNIM("0.00001"),
-		4242, // validity start height — usually from rpc.Client.BlockNumber
-		nimiq.NetworkTestAlbatross,
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := nimiq.SignTransaction(ctx, key, tx); err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("hash", tx.Hash())
+	fmt.Println("sender", key.Address())
 
 	endpoint := os.Getenv("NIMIQ_RPC")
 	if endpoint == "" {
 		return
 	}
-	client, err := rpc.New(endpoint)
+	client, err := rpc.New(endpoint, rpc.WithNetwork(nimiq.NetworkTestAlbatross))
 	if err != nil {
 		log.Fatal(err)
 	}
-	hash, err := client.SendTransaction(ctx, tx)
+	hash, err := client.Send(ctx, key, recipient, nimiq.MustParseNIM("1.5"))
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("broadcast", hash)
 }
 ```
+
+`Send` fills the validity start height from the chain head and the fee from the network minimum. The network is set with `WithNetwork` at construction — never read from the node.
 
 A runnable copy lives in [`examples/basic`](examples/basic).
 
@@ -82,8 +75,19 @@ A runnable copy lives in [`examples/basic`](examples/basic).
 | Package | Role |
 |---|---|
 | `github.com/NimMiniApps/nimiq-go` | Addresses, amounts, transactions, staking constructors, verification |
-| `…/signer` | In-process Ed25519 private keys (`nimiq.Signer`) |
+| `…/signer` | In-process Ed25519 private keys (`nimiq.Signer`), BIP39 mnemonic import |
 | `…/rpc` | JSON-RPC client (no key material; endpoint always required) |
+
+## RPC
+
+Typed wrappers cover common reads and broadcast. For anything else, use the escape hatch — same retries, timeouts, and failover as the wrapped methods:
+
+```go
+var peers int
+err := client.Call(ctx, "getPeerCount", nil, &peers)
+```
+
+Promote a method to a typed wrapper only after two real users ask.
 
 ## Networks
 
