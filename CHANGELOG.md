@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-08-12
+
+Hub wire helpers for server-side wallet login.
+
+### Added
+
+- `ParsePublicKey` and `ParseSignature` for Hub/Keyguard encodings (std base64, base64url, optional 0x-hex)
+- Server-side wallet login recipe (`docs/wallet-login.md` and README blurb)
+
 ## [0.3.0] - 2026-08-11
 
 Application surface for wallets and mini apps: restore from backup, send without boilerplate, cashlinks, and vesting.

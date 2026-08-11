@@ -10,7 +10,7 @@ Go SDK for the [Nimiq](https://nimiq.com) Albatross (proof-of-stake) chain: offl
 ## Install
 
 ```bash
-go get github.com/NimMiniApps/nimiq-go@v0.3.0
+go get github.com/NimMiniApps/nimiq-go@v0.3.1
 ```
 
 Requires **Go 1.25+**.
@@ -21,6 +21,7 @@ Requires **Go 1.25+**.
 - `signer`: Ed25519 keys, encrypted storage, BIP39 mnemonic import/export
 - `rpc`: balances, history, fee estimation, staking reads, `Send`, raw `Call` escape hatch
 - Cashlink URL parse/encode and vesting/HTLC creation payload parsing
+- Hub wire helpers for server-side wallet login (`ParsePublicKey`, `ParseSignature`, `VerifyMessageFrom`)
 
 ## Quickstart
 
@@ -77,6 +78,22 @@ A runnable copy lives in [`examples/basic`](examples/basic).
 | `github.com/NimMiniApps/nimiq-go` | Addresses, amounts, transactions, staking constructors, verification |
 | `…/signer` | In-process Ed25519 private keys (`nimiq.Signer`), BIP39 mnemonic import |
 | `…/rpc` | JSON-RPC client (no key material; endpoint always required) |
+
+## Server-side wallet login
+
+Hub `signMessage` auth is four calls — no RPC required:
+
+```go
+addr, err := nimiq.ParseAddress(claimed)
+if err != nil { /* … */ }
+pub, err := nimiq.ParsePublicKey(publicKeyWire) // base64 / base64url / hex
+if err != nil { /* … */ }
+sig, err := nimiq.ParseSignature(signatureWire)
+if err != nil { /* … */ }
+err = nimiq.VerifyMessageFrom(addr, pub, []byte(challenge), sig)
+```
+
+Challenge text, nonces, and sessions are app-owned. Full recipe: [`docs/wallet-login.md`](docs/wallet-login.md).
 
 ## RPC
 
