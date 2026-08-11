@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 // Cashlink is a funded throwaway account encoded as a shareable URL fragment.
@@ -49,7 +50,12 @@ func (c *Cashlink) URL(baseURL string) string {
 func (c *Cashlink) encodePayload() string {
 	msg := []byte(c.Message)
 	if len(msg) > 255 {
+		// The length prefix is one byte. Cut on a rune boundary so a truncated
+		// message stays valid UTF-8 rather than ending in half a character.
 		msg = msg[:255]
+		for len(msg) > 0 && !utf8.Valid(msg) {
+			msg = msg[:len(msg)-1]
+		}
 	}
 	size := 32 + 8
 	if len(msg) > 0 || c.Theme != 0 {

@@ -1,8 +1,8 @@
 package signer
 
 import (
-	"strings"
 	_ "embed"
+	"strings"
 )
 
 //go:embed wordlist_english.txt

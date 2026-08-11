@@ -5,8 +5,8 @@ import "fmt"
 // Vesting creation payload sizes from core-rs CreationTransactionData{8,24,32}.
 // The numeric suffixes are the size of the fields after the 20-byte owner.
 const (
-	vestingDataShort  = AddressLen + 8          // owner + time_step
-	vestingDataMedium = AddressLen + 8 + 8 + 8  // + start_time + step_amount
+	vestingDataShort  = AddressLen + 8         // owner + time_step
+	vestingDataMedium = AddressLen + 8 + 8 + 8 // + start_time + step_amount
 	vestingDataFull   = AddressLen + 8 + 8 + 8 + 8
 )
 

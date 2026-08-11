@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestParseCashlinkBare(t *testing.T) {
@@ -111,6 +112,53 @@ func TestCashlinkRejectsTruncated(t *testing.T) {
 	_, err := ParseCashlink("https://hub.nimiq.com/cashlink/#" + hubEncode(seed[:]))
 	if err == nil {
 		t.Fatal("expected truncated error")
+	}
+}
+
+// TestCashlinkExternalVector pins the wire format to a payload built outside
+// this package. Every other cashlink test encodes with our own encoder, so
+// they would all still pass if the layout were wrong.
+//
+// Bytes: key 01..20, value 1500000 (big-endian u64), message length 6,
+// "Danke!", theme 3 — base64url'd independently.
+func TestCashlinkExternalVector(t *testing.T) {
+	const payload = "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAAAAAAABbjYAZEYW5rZSED"
+
+	c, err := ParseCashlink("https://hub.nimiq.com/cashlink/#" + payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Value != 1_500_000 {
+		t.Errorf("value = %d, want 1500000", c.Value)
+	}
+	if c.Message != "Danke!" {
+		t.Errorf("message = %q, want %q", c.Message, "Danke!")
+	}
+	if c.Theme != 3 {
+		t.Errorf("theme = %d, want 3", c.Theme)
+	}
+	for i, b := range c.Key {
+		if b != byte(i+1) {
+			t.Fatalf("key[%d] = %d, want %d", i, b, i+1)
+		}
+	}
+	// And back out to the same fragment.
+	if got := c.URL("https://hub.nimiq.com/cashlink/"); got != "https://hub.nimiq.com/cashlink/#"+payload {
+		t.Errorf("URL() = %s", got)
+	}
+}
+
+func TestCashlinkTruncatesLongMessageOnRuneBoundary(t *testing.T) {
+	c := &Cashlink{Key: bytes32(5), Value: 1, Message: strings.Repeat("é", 200)} // 400 bytes
+	got, err := ParseCashlink(c.URL("https://hub.nimiq.com/cashlink/"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !utf8.ValidString(got.Message) {
+		t.Fatalf("truncated message is not valid UTF-8: %q", got.Message)
+	}
+	if len(got.Message) > 255 {
+		t.Fatalf("message is %d bytes, want <= 255", len(got.Message))
 	}
 }
 

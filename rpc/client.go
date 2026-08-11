@@ -35,7 +35,7 @@ type Client struct {
 	user, pass string
 	// network is the chain transactions built by Send are signed for. Set with
 	// WithNetwork; it is never read from the node.
-	network nimiq.NetworkID
+	network    nimiq.NetworkID
 	hasNetwork bool
 	// onRequest, when set, is called after every attempt. It is the hook for
 	// metrics and logging, so the SDK itself needs no logger dependency.
