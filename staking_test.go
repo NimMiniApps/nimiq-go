@@ -287,6 +287,64 @@ func TestDeleteValidatorRequiresValue(t *testing.T) {
 	}
 }
 
+// TestDeactivateReactivateShape checks the payload carries the target
+// validator's address explicitly — unlike every other staking variant in
+// this SDK, sender here is just the fee payer, not the account being acted
+// on, so the target must travel in the data.
+func TestDeactivateReactivateShape(t *testing.T) {
+	signingKey := stakingSigner(t) // stands in for the validator's signing key
+	feePayer := stakingSigner(t)   // may be a different account entirely
+	ctx := context.Background()
+	feePayerAddr, _ := SignerAddress(ctx, feePayer)
+	validator := MustParseAddress("NQ57 2F6C X3GB Y9B7 04U5 2BVA 4BVC M2T0 ELRL")
+
+	cases := []struct {
+		name string
+		kind stakingKind
+		tx   *Transaction
+	}{}
+
+	tx, err := NewDeactivateValidatorTransaction(feePayerAddr, validator, 0, 100, NetworkTestAlbatross)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases = append(cases, struct {
+		name string
+		kind stakingKind
+		tx   *Transaction
+	}{"Deactivate", kindDeactivateValidator, tx})
+
+	tx, err = NewReactivateValidatorTransaction(feePayerAddr, validator, 0, 100, NetworkTestAlbatross)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases = append(cases, struct {
+		name string
+		kind stakingKind
+		tx   *Transaction
+	}{"Reactivate", kindReactivateValidator, tx})
+
+	for _, c := range cases {
+		if c.tx.RecipientData[0] != byte(c.kind) {
+			t.Errorf("%s: variant = %d, want %d", c.name, c.tx.RecipientData[0], c.kind)
+		}
+		wantLen := 1 + AddressLen + emptyProofLen
+		if len(c.tx.RecipientData) != wantLen {
+			t.Errorf("%s: data = %d bytes, want %d (variant + address + proof placeholder)", c.name, len(c.tx.RecipientData), wantLen)
+		}
+		gotAddr := c.tx.RecipientData[1 : 1+AddressLen]
+		if string(gotAddr) != string(validator[:]) {
+			t.Errorf("%s: payload address does not match target validator", c.name)
+		}
+		if c.tx.Sender != feePayerAddr {
+			t.Errorf("%s: sender must be the fee payer, not the validator", c.name)
+		}
+		if err := SignStakingTransaction(ctx, c.tx, signingKey, feePayer); err != nil {
+			t.Errorf("%s: signing with distinct signing-key and fee-payer signers should succeed: %v", c.name, err)
+		}
+	}
+}
+
 // TestValidatorCreationRefused checks the SDK declines rather than emitting a
 // transaction it cannot correctly sign.
 func TestValidatorCreationRefused(t *testing.T) {

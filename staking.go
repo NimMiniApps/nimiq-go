@@ -274,12 +274,44 @@ func NewDeleteValidatorTransaction(recipient Address, value, fee Luna, validityS
 	return tx, nil
 }
 
+// NewDeactivateValidatorTransaction deactivates an active validator.
+//
+// Unlike every other staking builder in this file, sender need not be the
+// account being acted on: this variant is authorized by the validator's
+// separate signing key, not by whoever pays the fee, so validatorAddress
+// travels explicitly in the payload. Sign with
+// SignStakingTransaction(ctx, tx, signingKeySigner, feePayerSigner) — the
+// signing-key signer fills the role SignStakingTransaction calls "staker"
+// (the inner-proof signer), the fee payer fills "sender" (the outer-proof
+// signer). They are commonly, but not necessarily, the same party.
+func NewDeactivateValidatorTransaction(sender, validatorAddress Address, fee Luna, validityStartHeight uint32, network NetworkID) (*Transaction, error) {
+	e := &encoder{}
+	e.raw(validatorAddress[:])
+	return newStakingTransaction(kindDeactivateValidator, e.buf, sender, 0, fee, validityStartHeight, network)
+}
+
+// NewReactivateValidatorTransaction reactivates a deactivated (but not
+// jailed or retired) validator. Same authorization model as
+// NewDeactivateValidatorTransaction — see its doc comment.
+func NewReactivateValidatorTransaction(sender, validatorAddress Address, fee Luna, validityStartHeight uint32, network NetworkID) (*Transaction, error) {
+	e := &encoder{}
+	e.raw(validatorAddress[:])
+	return newStakingTransaction(kindReactivateValidator, e.buf, sender, 0, fee, validityStartHeight, network)
+}
+
 // SignStakingTransaction signs an incoming staking transaction.
 //
 // Incoming staking transactions carry two signatures. The inner one authorizes
 // the staking action and is embedded in the transaction's data; the outer one
 // authorizes the sending account and lives in the transaction proof. They are
 // usually the same key, in which case pass the same signer twice.
+//
+// The "staker" and "sender" parameter names describe the usual case — most
+// callers use the same signer for both, or the staking account's own key for
+// "staker". For NewDeactivateValidatorTransaction and
+// NewReactivateValidatorTransaction, pass the validator's separate signing
+// key as "staker" and whoever is paying the fee as "sender": those two may be
+// different accounts entirely.
 //
 // Order matters and is not interchangeable: the inner signature is taken over
 // the content with the embedded proof still zeroed, and the outer signature is
