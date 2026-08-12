@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -273,9 +274,10 @@ func TestSendFillsHeightAndFee(t *testing.T) {
 				t.Errorf("params: %v", err)
 				return
 			}
-			raw := make([]byte, len(hexStr)/2)
-			for i := 0; i < len(raw); i++ {
-				fmt.Sscanf(hexStr[i*2:i*2+2], "%02x", &raw[i])
+			raw, err := hex.DecodeString(hexStr)
+			if err != nil {
+				t.Errorf("decode raw transaction: %v", err)
+				return
 			}
 			tx, err := nimiq.ParseAndVerify(raw, nimiq.NetworkTestAlbatross)
 			if err != nil {
