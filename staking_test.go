@@ -260,6 +260,33 @@ func TestRetireValidatorShape(t *testing.T) {
 	}
 }
 
+func TestDeleteValidatorIsOutgoing(t *testing.T) {
+	me := MustParseAddress("NQ57 2F6C X3GB Y9B7 04U5 2BVA 4BVC M2T0 ELRL")
+	tx, err := NewDeleteValidatorTransaction(me, MustParseNIM("100000"), 0, 100, NetworkTestAlbatross)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tx.Sender != StakingContractAddress || tx.SenderType != AccountStaking {
+		t.Error("DeleteValidator must be sent from the staking contract")
+	}
+	if len(tx.SenderData) != 1 || tx.SenderData[0] != kindDeleteValidator {
+		t.Errorf("sender data = %x, want the DeleteValidator variant tag", tx.SenderData)
+	}
+	if tx.Recipient != me {
+		t.Error("deposit must return to recipient")
+	}
+	if tx.Format() != FormatExtended {
+		t.Error("an outgoing staking transaction must use the extended format")
+	}
+}
+
+func TestDeleteValidatorRequiresValue(t *testing.T) {
+	me := MustParseAddress("NQ57 2F6C X3GB Y9B7 04U5 2BVA 4BVC M2T0 ELRL")
+	if _, err := NewDeleteValidatorTransaction(me, 0, 0, 100, NetworkTestAlbatross); err == nil {
+		t.Fatal("expected an error for zero value")
+	}
+}
+
 // TestValidatorCreationRefused checks the SDK declines rather than emitting a
 // transaction it cannot correctly sign.
 func TestValidatorCreationRefused(t *testing.T) {

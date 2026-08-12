@@ -247,6 +247,33 @@ func NewRetireValidatorTransaction(sender Address, fee Luna, validityStartHeight
 	return newStakingTransaction(kindRetireValidator, nil, sender, 0, fee, validityStartHeight, network)
 }
 
+// NewDeleteValidatorTransaction deletes a retired validator and returns its
+// deposit to recipient. This is an outgoing staking transaction: the staking
+// contract is the sender, the variant tag travels in SenderData, and the
+// only signature required is the validator's, carried in the transaction
+// proof. Sign it with SignTransaction, not SignStakingTransaction — same
+// shape as NewRemoveStakeTransaction.
+func NewDeleteValidatorTransaction(recipient Address, value, fee Luna, validityStartHeight uint32, network NetworkID) (*Transaction, error) {
+	if value == 0 {
+		return nil, fmt.Errorf("nimiq: DeleteValidator must have a non-zero value")
+	}
+	tx := &Transaction{
+		Sender:              StakingContractAddress,
+		SenderType:          AccountStaking,
+		SenderData:          []byte{kindDeleteValidator},
+		Recipient:           recipient,
+		RecipientType:       AccountBasic,
+		Value:               value,
+		Fee:                 fee,
+		ValidityStartHeight: validityStartHeight,
+		Network:             network,
+	}
+	if !tx.Network.IsAlbatross() {
+		return nil, fmt.Errorf("nimiq: refusing to build a staking transaction for %s", tx.Network)
+	}
+	return tx, nil
+}
+
 // SignStakingTransaction signs an incoming staking transaction.
 //
 // Incoming staking transactions carry two signatures. The inner one authorizes
