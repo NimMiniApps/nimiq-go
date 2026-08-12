@@ -102,3 +102,35 @@ func TestGetActiveValidators(t *testing.T) {
 		t.Error("eligibility misreported")
 	}
 }
+
+func TestGetStakersByValidatorAddress(t *testing.T) {
+	c, _ := newFakeNode(t, map[string]string{
+		"getStakersByValidatorAddress": `{"data":[` +
+			`{"address":"NQ11","balance":1000000,"delegation":"NQ99"},` +
+			`{"address":"NQ22","balance":2000000,"delegation":"NQ99"}` +
+			`],"metadata":null}`,
+	})
+	stakers, err := c.GetStakersByValidatorAddress(context.Background(), testAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stakers) != 2 {
+		t.Fatalf("got %d stakers, want 2", len(stakers))
+	}
+	if stakers[0].Address != "NQ11" || stakers[0].Balance != 1000000 {
+		t.Errorf("staker[0] = %+v", stakers[0])
+	}
+}
+
+func TestGetStakersByValidatorAddressEmpty(t *testing.T) {
+	c, _ := newFakeNode(t, map[string]string{
+		"getStakersByValidatorAddress": `{"data":[],"metadata":null}`,
+	})
+	stakers, err := c.GetStakersByValidatorAddress(context.Background(), testAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stakers) != 0 {
+		t.Errorf("got %d stakers, want 0", len(stakers))
+	}
+}

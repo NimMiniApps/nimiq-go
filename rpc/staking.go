@@ -113,3 +113,16 @@ func (c *Client) GetValidator(ctx context.Context, addr nimiq.Address) (*Validat
 	}
 	return &v, nil
 }
+
+// GetStakersByValidatorAddress lists every staker delegating to a validator.
+//
+// A validator with no delegators returns an empty slice, not an error — that
+// is an ordinary state (see GetStaker's ErrNoStaker for the same distinction
+// on a single address).
+func (c *Client) GetStakersByValidatorAddress(ctx context.Context, addr nimiq.Address) ([]Staker, error) {
+	var stakers []Staker
+	if err := c.call(ctx, "getStakersByValidatorAddress", []any{addr.String()}, &stakers); err != nil {
+		return nil, err
+	}
+	return stakers, nil
+}
