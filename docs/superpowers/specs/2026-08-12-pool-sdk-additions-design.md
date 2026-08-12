@@ -58,13 +58,34 @@ Add to `staking.go`, following the exact shape of
 zero-value, inner + outer signature via `SignStakingTransaction`):
 
 ```go
-func NewDeactivateValidatorTransaction(sender Address, fee Luna, validityStartHeight uint32, network NetworkID) (*Transaction, error)
-func NewReactivateValidatorTransaction(sender Address, fee Luna, validityStartHeight uint32, network NetworkID) (*Transaction, error)
+func NewDeactivateValidatorTransaction(sender, validatorAddress Address, fee Luna, validityStartHeight uint32, network NetworkID) (*Transaction, error)
+func NewReactivateValidatorTransaction(sender, validatorAddress Address, fee Luna, validityStartHeight uint32, network NetworkID) (*Transaction, error)
+```
+
+Payload is `validator_address` (20 raw bytes) followed by the inner proof
+placeholder, same structural shape as `NewAddStakeTransaction`'s staker field.
+
+These two are authorized by the validator's **signing key** — a distinct key
+registered separately from the validator's account, not the key that
+receives stake — not by whoever pays the fee. `sender` may be an unrelated
+fee-paying account; `validatorAddress` names the validator being acted on.
+Sign with `SignStakingTransaction(ctx, tx, signingKey, feePayer)`: the
+existing two-signer contract already generalizes here, `signingKey` fills the
+role `SignStakingTransaction` calls "staker" (the inner-proof signer),
+`feePayer` fills "sender" (the outer-proof signer). No change needed to
+`SignStakingTransaction` itself — only to its doc comment, to state this
+usage explicitly rather than assuming staker/sender are always the same two
+parties as the existing stake builders.
+
+```go
 func NewRetireValidatorTransaction(sender Address, fee Luna, validityStartHeight uint32, network NetworkID) (*Transaction, error)
 ```
 
-`sender` is the validator address itself — these act on the caller's own
-validator record, there is no separate target address in the payload.
+Unlike Deactivate/Reactivate, Retire is authorized by the validator's own
+account key — `sender` is the validator, signed with
+`SignStakingTransaction(ctx, tx, validatorSigner, validatorSigner)` (same
+signer twice, like `NewRetireStakeTransaction`). No separate signing key, no
+address field in the payload.
 
 ```go
 func NewDeleteValidatorTransaction(recipient Address, value, fee Luna, validityStartHeight uint32, network NetworkID) (*Transaction, error)
@@ -75,15 +96,18 @@ Outgoing staking transaction, same shape as `NewRemoveStakeTransaction`:
 returned to `recipient`. Signed with `SignTransaction`, not
 `SignStakingTransaction`.
 
-**Open question for implementation, not this spec:** the exact payload byte
-layout for the three signaling variants (any fields beyond the inner proof
-placeholder `newStakingTransaction` already appends). `kindDeactivateValidator`
-/ `kindReactivateValidator` / `kindRetireValidator` constants already exist in
-`staking.go` (values 2/3/4) but neither zpool nor this SDK has a reference
-implementation to copy. Verify against core-rs's
-`IncomingStakingTransactionData` enum (or a devnet round-trip) before writing
-the builders — get this wrong and the transaction serializes fine but is
-rejected by the network.
+**Confidence note:** the parameter shapes above (which variants need a
+separate signing key vs. self-authorization, which carry an explicit
+`validatorAddress` field) are inferred from the parameter lists of this
+environment's live `createDeactivateValidatorTransaction` /
+`createReactivateValidatorTransaction` / `createRetireValidatorTransaction` /
+`createDeleteValidatorTransaction` RPC tools (Deactivate/Reactivate require
+`signingSecretKey` + `validatorAddress` as fields distinct from the fee-paying
+`senderWallet`; Retire and Delete take only a validator/sender wallet). The
+exact payload *byte layout* (field order, whether any length-prefixing
+applies) is still unverified — Task 1 of the implementation plan derives it
+from a real serialized transaction rather than guessing, the same way
+`TestCreateStakerOnChainFixture` in `staking_test.go` was derived.
 
 ## 4. Documentation
 
