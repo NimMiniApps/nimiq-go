@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-08-12
+
+Validator-pool SDK support for delegation accounting, block rewards, and validator lifecycle management.
+
+### Added
+
+- `rpc.Client.GetStakersByValidatorAddress` to list every staker delegating to a validator, including ordinary empty results
+- `rpc.Inherent`, `Inherent.IsReward`, and `rpc.Client.GetInherentsByBlockNumber` for reward, jail, and penalty events at a block
+- `NewRetireValidatorTransaction` and `NewDeleteValidatorTransaction` for retiring a validator and reclaiming its deposit
+- `NewDeactivateValidatorTransaction` and `NewReactivateValidatorTransaction`, with distinct validator signing-key and fee-payer support
+- Validator lifecycle fixtures verified byte-for-byte against node-built transactions and successfully executed on a disposable dev-albatross
+- Pool integration and validator lifecycle validation guides (`docs/pool-integration.md` and `docs/phase-pool-staking.md`)
+
+### Not supported
+
+- Validator creation and voting-key updates remain intentionally unsupported because they require BLS proof-of-knowledge generation; use the node wallet RPCs for those operations
+
 ## [0.3.1] - 2026-08-12
 
 Hub wire helpers for server-side wallet login.
@@ -57,6 +74,8 @@ Initial public release of the Nimiq Albatross Go SDK.
 - Example under `examples/basic`
 - CI, golangci-lint, Dependabot, and tag-driven GitHub Releases
 
+[0.4.0]: https://github.com/NimMiniApps/nimiq-go/releases/tag/v0.4.0
+[0.3.1]: https://github.com/NimMiniApps/nimiq-go/releases/tag/v0.3.1
 [0.3.0]: https://github.com/NimMiniApps/nimiq-go/releases/tag/v0.3.0
 [0.2.0]: https://github.com/NimMiniApps/nimiq-go/releases/tag/v0.2.0
 [0.1.0]: https://github.com/NimMiniApps/nimiq-go/releases/tag/v0.1.0
