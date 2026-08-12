@@ -228,6 +228,38 @@ func TestRemoveStakeIsOutgoing(t *testing.T) {
 	}
 }
 
+// TestRetireValidatorShape checks the RetireValidator payload is exactly the
+// variant byte plus the inner proof placeholder — core-rs's RetireValidator
+// carries no fields of its own.
+func TestRetireValidatorShape(t *testing.T) {
+	s := stakingSigner(t)
+	ctx := context.Background()
+	me, _ := SignerAddress(ctx, s)
+
+	tx, err := NewRetireValidatorTransaction(me, 0, 100, NetworkTestAlbatross)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tx.RecipientData[0] != byte(kindRetireValidator) {
+		t.Errorf("variant = %d, want %d", tx.RecipientData[0], kindRetireValidator)
+	}
+	if len(tx.RecipientData) != 1+emptyProofLen {
+		t.Errorf("data = %d bytes, want %d (variant + proof placeholder only)", len(tx.RecipientData), 1+emptyProofLen)
+	}
+	if tx.Flags&FlagSignaling == 0 {
+		t.Error("RetireValidator must set the signaling flag")
+	}
+	if tx.Value != 0 {
+		t.Error("RetireValidator must have zero value")
+	}
+	if err := SignStakingTransaction(ctx, tx, s, s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Serialize(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestValidatorCreationRefused checks the SDK declines rather than emitting a
 // transaction it cannot correctly sign.
 func TestValidatorCreationRefused(t *testing.T) {

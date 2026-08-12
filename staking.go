@@ -236,6 +236,17 @@ func NewRemoveStakeTransaction(recipient Address, value, fee Luna, validityStart
 	return tx, nil
 }
 
+// NewRetireValidatorTransaction retires an existing validator, removing it
+// from the active set. This is authorized by the validator's own account key
+// — sign with SignStakingTransaction(ctx, tx, validatorSigner, validatorSigner),
+// the same signer for both the inner and outer proof, exactly like
+// NewRetireStakeTransaction.
+//
+// This is a signaling transaction and carries no value.
+func NewRetireValidatorTransaction(sender Address, fee Luna, validityStartHeight uint32, network NetworkID) (*Transaction, error) {
+	return newStakingTransaction(kindRetireValidator, nil, sender, 0, fee, validityStartHeight, network)
+}
+
 // SignStakingTransaction signs an incoming staking transaction.
 //
 // Incoming staking transactions carry two signatures. The inner one authorizes
